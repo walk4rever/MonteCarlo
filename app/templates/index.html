@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monte Carlo Simulator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar for inputs -->
+            <div class="col-md-4 sidebar">
+                <div class="p-3">
+                    <h1>Monte Carlo Simulator</h1>
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5>Variables</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="variables-container"></div>
+                            <button id="add-variable-btn" class="btn btn-outline-primary btn-sm">Add Variable</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5>Formulas</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="formulas-container"></div>
+                            <button id="add-formula-btn" class="btn btn-outline-primary btn-sm">Add Formula</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5>Simulation Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="num-simulations" class="form-label">Number of Simulations</label>
+                                <input type="number" id="num-simulations" class="form-control" value="10000" min="100" max="100000">
+                            </div>
+                            <button id="run-simulation-btn" class="btn btn-primary">Run Simulation</button>
+                            <button id="save-scenario-btn" class="btn btn-outline-secondary">Save Scenario</button>
+                            <button id="load-scenario-btn" class="btn btn-outline-secondary">Load Scenario</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main content area for results -->
+            <div class="col-md-8 main-content">
+                <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2>Simulation Results</h2>
+                        <div class="btn-group" role="group" id="output-selector">
+                            <!-- Output buttons will be added here -->
+                        </div>
+                    </div>
+                    
+                    <div class="row" id="results-container" style="display: none;">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">Probability Distribution</div>
+                                <div class="card-body">
+                                    <div id="histogram-container" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">Cumulative Distribution</div>
+                                <div class="card-body">
+                                    <div id="cdf-container" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">Sensitivity Analysis</div>
+                                <div class="card-body">
+                                    <div id="sensitivity-container" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">Statistical Summary</div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        <tbody id="stats-table"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header">Scatter Plots</div>
+                                <div class="card-body">
+                                    <div id="scatter-container" style="height: 300px;"></div>
+                                    <div class="mt-2">
+                                        <select id="x-variable" class="form-select form-select-sm d-inline-block" style="width: auto;"></select>
+                                        <span> vs </span>
+                                        <select id="y-variable" class="form-select form-select-sm d-inline-block" style="width: auto;"></select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="loading-indicator" class="text-center" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Running simulation...</p>
+                    </div>
+                    
+                    <div id="no-results" class="text-center">
+                        <p>No simulation results yet. Configure your variables and formulas, then run the simulation.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Templates for dynamic elements -->
+    <template id="variable-template">
+        <div class="variable-item card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h6 class="card-title">Variable</h6>
+                    <button type="button" class="btn-close remove-variable" aria-label="Close"></button>
+                </div>
+                <div class="mb-2">
+                    <input type="text" class="form-control variable-name" placeholder="Variable Name">
+                </div>
+                <div class="mb-2">
+                    <select class="form-select distribution-type">
+                        <option value="normal">Normal Distribution</option>
+                        <option value="uniform">Uniform Distribution</option>
+                        <option value="triangular">Triangular Distribution</option>
+                        <option value="lognormal">Log-Normal Distribution</option>
+                        <option value="beta">Beta Distribution</option>
+                        <option value="constant">Constant Value</option>
+                    </select>
+                </div>
+                <div class="distribution-params"></div>
+                <div class="text-center mt-2">
+                    <button class="btn btn-sm btn-outline-secondary preview-distribution">Preview</button>
+                </div>
+                <div class="preview-chart" style="height: 100px; display: none;"></div>
+            </div>
+        </div>
+    </template>
+    
+    <template id="formula-template">
+        <div class="formula-item card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h6 class="card-title">Formula</h6>
+                    <button type="button" class="btn-close remove-formula" aria-label="Close"></button>
+                </div>
+                <div class="mb-2">
+                    <input type="text" class="form-control output-name" placeholder="Output Name">
+                </div>
+                <div class="mb-2">
+                    <textarea class="form-control formula-expression" placeholder="Enter formula expression (e.g., var1 + var2 * 2)"></textarea>
+                </div>
+                <div class="text-muted small">
+                    <p>Available operations: +, -, *, /, **, Math.sqrt(), Math.log(), etc.</p>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <template id="normal-params-template">
+        <div class="row g-2">
+            <div class="col-6">
+                <label class="form-label">Mean</label>
+                <input type="number" class="form-control param-mean" value="0">
+            </div>
+            <div class="col-6">
+                <label class="form-label">Std Dev</label>
+                <input type="number" class="form-control param-std" value="1" min="0.01">
+            </div>
+        </div>
+    </template>
+    
+    <template id="uniform-params-template">
+        <div class="row g-2">
+            <div class="col-6">
+                <label class="form-label">Min</label>
+                <input type="number" class="form-control param-min" value="0">
+            </div>
+            <div class="col-6">
+                <label class="form-label">Max</label>
+                <input type="number" class="form-control param-max" value="1">
+            </div>
+        </div>
+    </template>
+    
+    <template id="triangular-params-template">
+        <div class="row g-2">
+            <div class="col-4">
+                <label class="form-label">Min</label>
+                <input type="number" class="form-control param-min" value="0">
+            </div>
+            <div class="col-4">
+                <label class="form-label">Mode</label>
+                <input type="number" class="form-control param-mode" value="0.5">
+            </div>
+            <div class="col-4">
+                <label class="form-label">Max</label>
+                <input type="number" class="form-control param-max" value="1">
+            </div>
+        </div>
+    </template>
+    
+    <template id="lognormal-params-template">
+        <div class="row g-2">
+            <div class="col-6">
+                <label class="form-label">Mean</label>
+                <input type="number" class="form-control param-mean" value="0">
+            </div>
+            <div class="col-6">
+                <label class="form-label">Sigma</label>
+                <input type="number" class="form-control param-sigma" value="0.5" min="0.01">
+            </div>
+        </div>
+    </template>
+    
+    <template id="beta-params-template">
+        <div class="row g-2">
+            <div class="col-6">
+                <label class="form-label">Alpha</label>
+                <input type="number" class="form-control param-alpha" value="2" min="0.01" step="0.1">
+            </div>
+            <div class="col-6">
+                <label class="form-label">Beta</label>
+                <input type="number" class="form-control param-beta" value="2" min="0.01" step="0.1">
+            </div>
+        </div>
+    </template>
+    
+    <template id="constant-params-template">
+        <div class="row g-2">
+            <div class="col-12">
+                <label class="form-label">Value</label>
+                <input type="number" class="form-control param-value" value="0">
+            </div>
+        </div>
+    </template>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

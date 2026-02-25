@@ -1,729 +1,271 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // DOM Elements
-    const addVariableBtn = document.getElementById('add-variable-btn');
-    const addFormulaBtn = document.getElementById('add-formula-btn');
-    const runSimulationBtn = document.getElementById('run-simulation-btn');
-    const saveScenarioBtn = document.getElementById('save-scenario-btn');
-    const loadScenarioBtn = document.getElementById('load-scenario-btn');
-    const variablesContainer = document.getElementById('variables-container');
-    const formulasContainer = document.getElementById('formulas-container');
-    const resultsContainer = document.getElementById('results-container');
-    const noResults = document.getElementById('no-results');
-    const loadingIndicator = document.getElementById('loading-indicator');
-    const outputSelector = document.getElementById('output-selector');
-    const xVariableSelect = document.getElementById('x-variable');
-    const yVariableSelect = document.getElementById('y-variable');
-    
-    // Templates
-    const variableTemplate = document.getElementById('variable-template');
-    const formulaTemplate = document.getElementById('formula-template');
-    const normalParamsTemplate = document.getElementById('normal-params-template');
-    const uniformParamsTemplate = document.getElementById('uniform-params-template');
-    const triangularParamsTemplate = document.getElementById('triangular-params-template');
-    const lognormalParamsTemplate = document.getElementById('lognormal-params-template');
-    const betaParamsTemplate = document.getElementById('beta-params-template');
-    const constantParamsTemplate = document.getElementById('constant-params-template');
-    
-    // Current simulation results
-    let currentResults = null;
-    let currentSelectedOutput = null;
-    
-    // Add event listeners
-    addVariableBtn.addEventListener('click', addVariable);
-    addFormulaBtn.addEventListener('click', addFormula);
-    runSimulationBtn.addEventListener('click', runSimulation);
-    saveScenarioBtn.addEventListener('click', saveScenario);
-    loadScenarioBtn.addEventListener('click', loadScenario);
-    
-    // Add a variable panel
-    function addVariable() {
-        const variableElement = variableTemplate.content.cloneNode(true);
-        const variableItem = variableElement.querySelector('.variable-item');
-        
-        // Setup distribution type change event
-        const distTypeSelect = variableElement.querySelector('.distribution-type');
-        const paramsContainer = variableElement.querySelector('.distribution-params');
-        
-        // Set default distribution parameters
-        updateDistributionParams(distTypeSelect.value, paramsContainer);
-        
-        distTypeSelect.addEventListener('change', function() {
-            updateDistributionParams(this.value, paramsContainer);
-        });
-        
-        // Setup remove button
-        const removeBtn = variableElement.querySelector('.remove-variable');
-        removeBtn.addEventListener('click', function() {
-            variableItem.remove();
-        });
-        
-        // Setup preview button
-        const previewBtn = variableElement.querySelector('.preview-distribution');
-        const previewChart = variableElement.querySelector('.preview-chart');
-        
-        previewBtn.addEventListener('click', function() {
-            const varData = getVariableData(variableItem);
-            if (varData) {
-                previewDistribution(varData.distribution, previewChart);
-            }
-        });
-        
-        variablesContainer.appendChild(variableElement);
+/* =============================================
+   风险模拟器 — main.js
+   ============================================= */
+
+const SCENARIOS = {
+    cost: {
+        label: '项目成本估算',
+        variables: [
+            { name: '人力成本', pessimistic: 80, base: 100, optimistic: 120 },
+            { name: '采购成本', pessimistic: 50, base: 60, optimistic: 75 },
+            { name: '运营费用', pessimistic: 20, base: 25, optimistic: 30 },
+        ]
+    },
+    revenue: {
+        label: '销售收入预测',
+        variables: [
+            { name: '客单价（元）', pessimistic: 200, base: 350, optimistic: 500 },
+            { name: '月销量（件）', pessimistic: 500, base: 1200, optimistic: 2000 },
+        ]
+    },
+    investment: {
+        label: '投资回报分析',
+        variables: [
+            { name: '年化收益率（%）', pessimistic: -5, base: 8, optimistic: 20 },
+            { name: '投资年限（年）', pessimistic: 3, base: 5, optimistic: 10 },
+            { name: '初始资金（万元）', pessimistic: 10, base: 20, optimistic: 50 },
+        ]
     }
-    
-    // Update distribution parameters UI based on selected distribution type
-    function updateDistributionParams(distType, container) {
-        container.innerHTML = '';
-        
-        let template;
-        switch (distType) {
-            case 'normal':
-                template = normalParamsTemplate.content.cloneNode(true);
-                break;
-            case 'uniform':
-                template = uniformParamsTemplate.content.cloneNode(true);
-                break;
-            case 'triangular':
-                template = triangularParamsTemplate.content.cloneNode(true);
-                break;
-            case 'lognormal':
-                template = lognormalParamsTemplate.content.cloneNode(true);
-                break;
-            case 'beta':
-                template = betaParamsTemplate.content.cloneNode(true);
-                break;
-            case 'constant':
-                template = constantParamsTemplate.content.cloneNode(true);
-                break;
+}
+
+let varCount = 0
+
+function makeVariableRow(data = {}) {
+    varCount++
+    const id = varCount
+    const row = document.createElement('div')
+    row.className = 'variable-row'
+    row.dataset.id = id
+
+    row.innerHTML = `
+    <input type="text"   class="v-name"  placeholder="变量名称" value="${data.name || ''}">
+    <input type="number" class="v-pess"  placeholder="最差" value="${data.pessimistic ?? ''}">
+    <input type="number" class="v-base"  placeholder="最可能" value="${data.base ?? ''}">
+    <input type="number" class="v-opt"   placeholder="最好" value="${data.optimistic ?? ''}">
+    <button class="btn-delete" title="删除">×</button>
+  `
+
+    row.querySelector('.btn-delete').addEventListener('click', () => {
+        row.style.opacity = '0'
+        row.style.transform = 'translateX(12px)'
+        row.style.transition = 'opacity .15s, transform .15s'
+        setTimeout(() => row.remove(), 150)
+    })
+
+    return row
+}
+
+function collectVariables() {
+    const rows = document.querySelectorAll('.variable-row')
+    const vars = []
+    let valid = true
+
+    rows.forEach(row => {
+        const nameEl = row.querySelector('.v-name')
+        const pessEl = row.querySelector('.v-pess')
+        const baseEl = row.querySelector('.v-base')
+        const optEl = row.querySelector('.v-opt')
+
+            ;[nameEl, pessEl, baseEl, optEl].forEach(el => el.classList.remove('invalid'))
+
+        const name = nameEl.value.trim()
+        const p = parseFloat(pessEl.value)
+        const b = parseFloat(baseEl.value)
+        const o = parseFloat(optEl.value)
+
+        let rowValid = true
+        if (!name) { nameEl.classList.add('invalid'); rowValid = false }
+        if (isNaN(p)) { pessEl.classList.add('invalid'); rowValid = false }
+        if (isNaN(b)) { baseEl.classList.add('invalid'); rowValid = false }
+        if (isNaN(o)) { optEl.classList.add('invalid'); rowValid = false }
+        if (rowValid && !(p <= b && b <= o)) {
+            ;[pessEl, baseEl, optEl].forEach(el => el.classList.add('invalid'))
+            rowValid = false
         }
-        
-        container.appendChild(template);
+
+        if (!rowValid) { valid = false; return }
+        vars.push({ name, pessimistic: p, base: b, optimistic: o })
+    })
+
+    return valid ? vars : null
+}
+
+function formatNum(n) {
+    if (Math.abs(n) >= 10000) return (n / 10000).toFixed(2) + ' 万'
+    if (Math.abs(n) >= 1000) return n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return n.toFixed(2)
+}
+
+function showError(msg) {
+    const el = document.getElementById('error-msg')
+    el.textContent = msg
+    el.style.display = 'block'
+}
+
+function hideError() {
+    document.getElementById('error-msg').style.display = 'none'
+}
+
+async function runSimulation() {
+    hideError()
+    const vars = collectVariables()
+    if (!vars) {
+        showError('请检查红色高亮的字段：变量名不能为空，且数值须满足"最差 ≤ 最可能 ≤ 最好"')
+        return
     }
-    
-    // Add a formula panel
-    function addFormula() {
-        const formulaElement = formulaTemplate.content.cloneNode(true);
-        const formulaItem = formulaElement.querySelector('.formula-item');
-        
-        // Setup remove button
-        const removeBtn = formulaElement.querySelector('.remove-formula');
-        removeBtn.addEventListener('click', function() {
-            formulaItem.remove();
-        });
-        
-        formulasContainer.appendChild(formulaElement);
+    if (vars.length === 0) {
+        showError('请至少添加一个变量')
+        return
     }
-    
-    // Collect variable data from the UI
-    function getVariableData(variableItem) {
-        const nameInput = variableItem.querySelector('.variable-name');
-        const distTypeSelect = variableItem.querySelector('.distribution-type');
-        const name = nameInput.value.trim();
-        
-        if (!name) {
-            nameInput.classList.add('is-invalid');
-            return null;
-        }
-        
-        const distType = distTypeSelect.value;
-        const params = {};
-        
-        switch (distType) {
-            case 'normal':
-                params.mean = parseFloat(variableItem.querySelector('.param-mean').value);
-                params.std = parseFloat(variableItem.querySelector('.param-std').value);
-                break;
-            case 'uniform':
-                params.min = parseFloat(variableItem.querySelector('.param-min').value);
-                params.max = parseFloat(variableItem.querySelector('.param-max').value);
-                break;
-            case 'triangular':
-                params.min = parseFloat(variableItem.querySelector('.param-min').value);
-                params.mode = parseFloat(variableItem.querySelector('.param-mode').value);
-                params.max = parseFloat(variableItem.querySelector('.param-max').value);
-                break;
-            case 'lognormal':
-                params.mean = parseFloat(variableItem.querySelector('.param-mean').value);
-                params.sigma = parseFloat(variableItem.querySelector('.param-sigma').value);
-                break;
-            case 'beta':
-                params.alpha = parseFloat(variableItem.querySelector('.param-alpha').value);
-                params.beta = parseFloat(variableItem.querySelector('.param-beta').value);
-                break;
-            case 'constant':
-                params.value = parseFloat(variableItem.querySelector('.param-value').value);
-                break;
-        }
-        
-        return {
-            name,
-            distribution: {
-                type: distType,
-                params
-            }
-        };
-    }
-    
-    // Collect formula data from the UI
-    function getFormulaData(formulaItem) {
-        const outputNameInput = formulaItem.querySelector('.output-name');
-        const expressionInput = formulaItem.querySelector('.formula-expression');
-        
-        const output = outputNameInput.value.trim();
-        const expression = expressionInput.value.trim();
-        
-        if (!output) {
-            outputNameInput.classList.add('is-invalid');
-            return null;
-        }
-        
-        if (!expression) {
-            expressionInput.classList.add('is-invalid');
-            return null;
-        }
-        
-        return {
-            output,
-            expression
-        };
-    }
-    
-    // Preview a distribution
-    function previewDistribution(distribution, container) {
-        container.style.display = 'block';
-        
-        fetch('/distribution_preview', {
+
+    const btn = document.getElementById('run-btn')
+    const btnText = document.getElementById('run-btn-text')
+    btn.disabled = true
+    btnText.textContent = '模拟中…'
+
+    try {
+        const res = await fetch('/simulate', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(distribution)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ variables: vars, num_simulations: 10000 })
         })
-        .then(response => response.json())
-        .then(data => {
-            const samples = data.samples;
-            
-            // Create a histogram using Plotly
-            const trace = {
-                x: samples,
-                type: 'histogram',
-                nbinsx: 20,
-                marker: {
-                    color: 'rgba(0, 123, 255, 0.6)',
-                    line: {
-                        color: 'rgba(0, 123, 255, 1)',
-                        width: 1
-                    }
-                }
-            };
-            
-            const layout = {
-                margin: { t: 10, r: 10, l: 30, b: 30 },
-                xaxis: { title: '' },
-                yaxis: { title: '' }
-            };
-            
-            Plotly.newPlot(container, [trace], layout, { displayModeBar: false });
-        })
-        .catch(error => {
-            console.error('Error previewing distribution:', error);
-            container.innerHTML = 'Error generating preview';
-        });
+        const data = await res.json()
+
+        if (data.error) {
+            showError(data.error)
+            return
+        }
+
+        renderResults(data, vars)
+    } catch (e) {
+        showError('网络错误，请稍后重试')
+    } finally {
+        btn.disabled = false
+        btnText.textContent = '重新模拟'
     }
-    
-    // Run the simulation
-    function runSimulation() {
-        // Collect all variable data
-        const variables = Array.from(variablesContainer.querySelectorAll('.variable-item'))
-            .map(getVariableData)
-            .filter(Boolean);
-        
-        if (variables.length === 0) {
-            alert('Please add at least one variable');
-            return;
-        }
-        
-        // Collect all formula data
-        const formulas = Array.from(formulasContainer.querySelectorAll('.formula-item'))
-            .map(getFormulaData)
-            .filter(Boolean);
-        
-        // Check for duplicate variable/output names
-        const allNames = new Set();
-        let hasDuplicates = false;
-        
-        variables.forEach(variable => {
-            if (allNames.has(variable.name)) {
-                hasDuplicates = true;
-            }
-            allNames.add(variable.name);
-        });
-        
-        formulas.forEach(formula => {
-            if (allNames.has(formula.output)) {
-                hasDuplicates = true;
-            }
-            allNames.add(formula.output);
-        });
-        
-        if (hasDuplicates) {
-            alert('Variable and output names must be unique');
-            return;
-        }
-        
-        // Get simulation count
-        const numSimulations = parseInt(document.getElementById('num-simulations').value);
-        
-        // Show loading indicator
-        noResults.style.display = 'none';
-        resultsContainer.style.display = 'none';
-        loadingIndicator.style.display = 'block';
-        
-        // Run the simulation
-        fetch('/simulate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+}
+
+function renderResults(data, vars) {
+    const { summary, histogram, sensitivity } = data
+    const { p10, p50, p90 } = summary
+
+    document.getElementById('p10-val').textContent = formatNum(p10)
+    document.getElementById('p50-val').textContent = formatNum(p50)
+    document.getElementById('p90-val').textContent = formatNum(p90)
+
+    document.getElementById('conclusion-text').innerHTML =
+        `模拟结果显示，有 <mark>80%</mark> 的概率结果落在 ` +
+        `<mark>${formatNum(p10)}</mark> 到 <mark>${formatNum(p90)}</mark> 之间，` +
+        `最可能的结果约为 <mark>${formatNum(p50)}</mark>。`
+
+    // Histogram
+    const edges = histogram.bin_edges
+    const centers = edges.slice(0, -1).map((v, i) => (v + edges[i + 1]) / 2)
+
+    const p10Idx = centers.findIndex(c => c >= p10)
+    const p90Idx = centers.findIndex(c => c >= p90)
+
+    const colors = histogram.counts.map((_, i) => {
+        if (i < p10Idx) return 'rgba(220,38,38,0.55)'
+        if (i > p90Idx) return 'rgba(5,150,105,0.55)'
+        return 'rgba(79,70,229,0.65)'
+    })
+
+    Plotly.newPlot('histogram-plot', [{
+        x: centers,
+        y: histogram.counts,
+        type: 'bar',
+        marker: { color: colors, line: { color: 'transparent' } },
+        hovertemplate: '区间中心: %{x:.2f}<br>频次: %{y}<extra></extra>'
+    }], {
+        margin: { t: 10, r: 10, l: 40, b: 40 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        bargap: 0.04,
+        xaxis: { title: '数值', gridcolor: '#e4e7ec' },
+        yaxis: { title: '频次', gridcolor: '#e4e7ec' },
+        shapes: [
+            {
+                type: 'line', x0: p10, x1: p10, y0: 0, y1: 1, yref: 'paper',
+                line: { color: '#dc2626', width: 1.5, dash: 'dot' }
             },
-            body: JSON.stringify({
-                variables,
-                formulas,
-                num_simulations: numSimulations
-            })
-        })
-        .then(response => response.json())
-        .then(results => {
-            // Hide loading indicator
-            loadingIndicator.style.display = 'none';
-            
-            if (results.error) {
-                alert('Simulation Error: ' + results.error);
-                return;
-            }
-            
-            // Store results and update UI
-            currentResults = results;
-            updateResultsUI(results);
-        })
-        .catch(error => {
-            console.error('Error running simulation:', error);
-            loadingIndicator.style.display = 'none';
-            alert('Error running simulation. See console for details.');
-        });
-    }
-    
-    // Update the results UI with simulation results
-    function updateResultsUI(results) {
-        // Show results container
-        resultsContainer.style.display = 'block';
-        
-        // Generate output selector buttons
-        outputSelector.innerHTML = '';
-        
-        const outputNames = Object.keys(results).filter(key => key !== 'sensitivity' && key !== 'samples');
-        
-        outputNames.forEach((name, index) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'btn ' + (index === 0 ? 'active' : '');
-            btn.textContent = name;
-            btn.addEventListener('click', function() {
-                // Set active state
-                outputSelector.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Update visualizations
-                displayOutputResults(name, results);
-            });
-            
-            outputSelector.appendChild(btn);
-        });
-        
-        // Update the scatter plot dropdown options
-        xVariableSelect.innerHTML = '';
-        yVariableSelect.innerHTML = '';
-        
-        outputNames.forEach(name => {
-            const xOption = document.createElement('option');
-            xOption.value = name;
-            xOption.textContent = name;
-            
-            const yOption = document.createElement('option');
-            yOption.value = name;
-            yOption.textContent = name;
-            
-            xVariableSelect.appendChild(xOption);
-            yVariableSelect.appendChild(yOption);
-        });
-        
-        if (outputNames.length >= 2) {
-            yVariableSelect.selectedIndex = 1;
-        }
-        
-        // Add event listeners for scatter plot selection changes
-        xVariableSelect.addEventListener('change', updateScatterPlot);
-        yVariableSelect.addEventListener('change', updateScatterPlot);
-        
-        // Show the first output by default
-        if (outputNames.length > 0) {
-            currentSelectedOutput = outputNames[0];
-            displayOutputResults(outputNames[0], results);
-            updateScatterPlot();
-        }
-    }
-    
-    // Display results for a specific output variable
-    function displayOutputResults(outputName, results) {
-        currentSelectedOutput = outputName;
-        const outputData = results[outputName];
-        
-        // Update histogram
-        updateHistogram(outputName, outputData);
-        
-        // Update CDF
-        updateCDF(outputName, outputData);
-        
-        // Update sensitivity chart if available
-        if (results.sensitivity && outputName === Object.keys(results).filter(key => key !== 'sensitivity' && key !== 'samples')[0]) {
-            updateSensitivityChart(results.sensitivity);
-        } else {
-            document.getElementById('sensitivity-container').innerHTML = 
-                '<div class="text-center text-muted p-5">Sensitivity analysis only available for primary output</div>';
-        }
-        
-        // Update stats table
-        updateStatsTable(outputData);
-    }
-    
-    // Update the histogram visualization
-    function updateHistogram(outputName, outputData) {
-        const histogramContainer = document.getElementById('histogram-container');
-        
-        const trace = {
-            x: outputData.bin_edges.slice(0, -1).map((val, i) => (val + outputData.bin_edges[i+1]) / 2),
-            y: outputData.histogram,
-            type: 'bar',
-            marker: {
-                color: 'rgba(0, 123, 255, 0.6)',
-                line: {
-                    color: 'rgba(0, 123, 255, 1)',
-                    width: 1
-                }
+            {
+                type: 'line', x0: p90, x1: p90, y0: 0, y1: 1, yref: 'paper',
+                line: { color: '#059669', width: 1.5, dash: 'dot' }
             },
-            name: 'Frequency'
-        };
-        
-        const layout = {
-            title: `Distribution of ${outputName}`,
-            xaxis: { title: outputName },
-            yaxis: { title: 'Frequency' },
-            bargap: 0.05
-        };
-        
-        Plotly.newPlot(histogramContainer, [trace], layout);
-    }
-    
-    // Update the CDF visualization
-    function updateCDF(outputName, outputData) {
-        const cdfContainer = document.getElementById('cdf-container');
-        
-        // Calculate CDF points from histogram data
-        const binCenters = outputData.bin_edges.slice(0, -1).map((val, i) => (val + outputData.bin_edges[i+1]) / 2);
-        let cdfY = [];
-        let sum = 0;
-        
-        for (const count of outputData.histogram) {
-            sum += count;
-            cdfY.push(sum);
-        }
-        
-        // Normalize CDF to be between 0 and 1
-        const totalSum = cdfY[cdfY.length - 1];
-        cdfY = cdfY.map(val => val / totalSum);
-        
-        // Add endpoints
-        const xValues = [outputData.bin_edges[0], ...binCenters, outputData.bin_edges[outputData.bin_edges.length - 1]];
-        const yValues = [0, ...cdfY, 1];
-        
-        const trace = {
-            x: xValues,
-            y: yValues,
-            type: 'scatter',
-            mode: 'lines',
-            line: {
-                color: 'rgba(0, 123, 255, 1)',
-                width: 2
+        ],
+        annotations: [
+            {
+                x: p10, y: 1, yref: 'paper', text: 'P10', showarrow: false,
+                font: { color: '#dc2626', size: 11 }, xanchor: 'right'
             },
-            name: 'CDF'
-        };
-        
-        const layout = {
-            title: `Cumulative Distribution of ${outputName}`,
-            xaxis: { title: outputName },
-            yaxis: { 
-                title: 'Probability',
-                range: [0, 1]
-            }
-        };
-        
-        Plotly.newPlot(cdfContainer, [trace], layout);
-    }
-    
-    // Update the sensitivity chart
-    function updateSensitivityChart(sensitivity) {
-        const sensitivityContainer = document.getElementById('sensitivity-container');
-        
-        // Sort variables by absolute sensitivity value
-        const sortedVars = Object.keys(sensitivity).sort((a, b) => 
-            Math.abs(sensitivity[b]) - Math.abs(sensitivity[a])
-        );
-        
-        const trace = {
-            y: sortedVars,
-            x: sortedVars.map(varName => sensitivity[varName]),
-            type: 'bar',
-            orientation: 'h',
-            marker: {
-                color: sortedVars.map(varName => 
-                    sensitivity[varName] >= 0 ? 'rgba(0, 123, 255, 0.6)' : 'rgba(220, 53, 69, 0.6)'
-                ),
-                line: {
-                    color: sortedVars.map(varName => 
-                        sensitivity[varName] >= 0 ? 'rgba(0, 123, 255, 1)' : 'rgba(220, 53, 69, 1)'
-                    ),
-                    width: 1
-                }
-            }
-        };
-        
-        const layout = {
-            title: 'Sensitivity Analysis (Correlation)',
-            xaxis: { 
-                title: 'Correlation Coefficient',
-                range: [-1, 1]
+            {
+                x: p90, y: 1, yref: 'paper', text: 'P90', showarrow: false,
+                font: { color: '#059669', size: 11 }, xanchor: 'left'
             },
-            yaxis: {
-                title: ''
-            }
-        };
-        
-        Plotly.newPlot(sensitivityContainer, [trace], layout);
+        ]
+    }, { displayModeBar: false, responsive: true })
+
+    // Sensitivity (only when >1 variable)
+    const sensitivityCard = document.getElementById('sensitivity-card')
+    if (vars.length > 1 && sensitivity) {
+        const sorted = Object.entries(sensitivity).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+        const names = sorted.map(e => e[0])
+        const values = sorted.map(e => e[1])
+        const barColors = values.map(v => v >= 0 ? 'rgba(79,70,229,0.7)' : 'rgba(220,38,38,0.7)')
+
+        Plotly.newPlot('sensitivity-plot', [{
+            y: names, x: values, type: 'bar', orientation: 'h',
+            marker: { color: barColors, line: { color: 'transparent' } },
+            hovertemplate: '%{y}: %{x:.3f}<extra></extra>'
+        }], {
+            margin: { t: 6, r: 20, l: 120, b: 40 },
+            paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+            xaxis: { title: 'Spearman 相关系数', range: [-1, 1], gridcolor: '#e4e7ec', zeroline: true, zerolinecolor: '#9ca3af' },
+            yaxis: { gridcolor: 'transparent' }
+        }, { displayModeBar: false, responsive: true })
+
+        sensitivityCard.style.display = 'block'
+    } else {
+        sensitivityCard.style.display = 'none'
     }
-    
-    // Update the statistics table
-    function updateStatsTable(outputData) {
-        const statsTable = document.getElementById('stats-table');
-        statsTable.innerHTML = '';
-        
-        const stats = [
-            { name: 'Mean', value: outputData.mean.toFixed(4) },
-            { name: 'Median', value: outputData.median.toFixed(4) },
-            { name: 'Standard Deviation', value: outputData.std.toFixed(4) },
-            { name: 'Minimum', value: outputData.min.toFixed(4) },
-            { name: 'Maximum', value: outputData.max.toFixed(4) },
-            { name: '1% Percentile', value: outputData.percentiles['1%'].toFixed(4) },
-            { name: '5% Percentile', value: outputData.percentiles['5%'].toFixed(4) },
-            { name: '10% Percentile', value: outputData.percentiles['10%'].toFixed(4) },
-            { name: '25% Percentile', value: outputData.percentiles['25%'].toFixed(4) },
-            { name: '75% Percentile', value: outputData.percentiles['75%'].toFixed(4) },
-            { name: '90% Percentile', value: outputData.percentiles['90%'].toFixed(4) },
-            { name: '95% Percentile', value: outputData.percentiles['95%'].toFixed(4) },
-            { name: '99% Percentile', value: outputData.percentiles['99%'].toFixed(4) }
-        ];
-        
-        stats.forEach(stat => {
-            const row = document.createElement('tr');
-            
-            const nameCell = document.createElement('th');
-            nameCell.textContent = stat.name;
-            
-            const valueCell = document.createElement('td');
-            valueCell.textContent = stat.value;
-            
-            row.appendChild(nameCell);
-            row.appendChild(valueCell);
-            statsTable.appendChild(row);
-        });
-    }
-    
-    // Update the scatter plot
-    function updateScatterPlot() {
-        if (!currentResults || !currentResults.samples) return;
-        
-        const xVar = xVariableSelect.value;
-        const yVar = yVariableSelect.value;
-        
-        if (!xVar || !yVar) return;
-        
-        const scatterContainer = document.getElementById('scatter-container');
-        
-        const trace = {
-            x: currentResults.samples[xVar],
-            y: currentResults.samples[yVar],
-            mode: 'markers',
-            type: 'scatter',
-            marker: {
-                color: 'rgba(0, 123, 255, 0.5)',
-                size: 6
-            }
-        };
-        
-        const layout = {
-            title: `Scatter Plot: ${yVar} vs ${xVar}`,
-            xaxis: { title: xVar },
-            yaxis: { title: yVar }
-        };
-        
-        Plotly.newPlot(scatterContainer, [trace], layout);
-    }
-    
-    // Save current scenario to localStorage
-    function saveScenario() {
-        const scenarioName = prompt('Enter a name for this scenario:');
-        if (!scenarioName) return;
-        
-        // Collect all variable data
-        const variables = Array.from(variablesContainer.querySelectorAll('.variable-item'))
-            .map(getVariableData)
-            .filter(Boolean);
-        
-        // Collect all formula data
-        const formulas = Array.from(formulasContainer.querySelectorAll('.formula-item'))
-            .map(getFormulaData)
-            .filter(Boolean);
-        
-        // Get simulation count
-        const numSimulations = parseInt(document.getElementById('num-simulations').value);
-        
-        // Create scenario object
-        const scenario = {
-            name: scenarioName,
-            variables,
-            formulas,
-            numSimulations
-        };
-        
-        // Save to localStorage
-        let savedScenarios = JSON.parse(localStorage.getItem('monte-carlo-scenarios') || '{}');
-        savedScenarios[scenarioName] = scenario;
-        localStorage.setItem('monte-carlo-scenarios', JSON.stringify(savedScenarios));
-        
-        alert('Scenario saved successfully!');
-    }
-    
-    // Load a saved scenario
-    function loadScenario() {
-        const savedScenarios = JSON.parse(localStorage.getItem('monte-carlo-scenarios') || '{}');
-        const scenarioNames = Object.keys(savedScenarios);
-        
-        if (scenarioNames.length === 0) {
-            alert('No saved scenarios found');
-            return;
-        }
-        
-        const scenarioName = prompt('Enter the name of the scenario to load:\n\nAvailable scenarios: ' + scenarioNames.join(', '));
-        if (!scenarioName || !savedScenarios[scenarioName]) {
-            if (scenarioName) alert('Scenario not found');
-            return;
-        }
-        
-        const scenario = savedScenarios[scenarioName];
-        
-        // Clear current setup
-        variablesContainer.innerHTML = '';
-        formulasContainer.innerHTML = '';
-        
-        // Load variables
-        scenario.variables.forEach(variableData => {
-            const variableElement = variableTemplate.content.cloneNode(true);
-            const variableItem = variableElement.querySelector('.variable-item');
-            
-            variableItem.querySelector('.variable-name').value = variableData.name;
-            
-            const distTypeSelect = variableItem.querySelector('.distribution-type');
-            distTypeSelect.value = variableData.distribution.type;
-            
-            const paramsContainer = variableItem.querySelector('.distribution-params');
-            updateDistributionParams(variableData.distribution.type, paramsContainer);
-            
-            // Set parameter values
-            const params = variableData.distribution.params;
-            switch (variableData.distribution.type) {
-                case 'normal':
-                    variableItem.querySelector('.param-mean').value = params.mean;
-                    variableItem.querySelector('.param-std').value = params.std;
-                    break;
-                case 'uniform':
-                    variableItem.querySelector('.param-min').value = params.min;
-                    variableItem.querySelector('.param-max').value = params.max;
-                    break;
-                case 'triangular':
-                    variableItem.querySelector('.param-min').value = params.min;
-                    variableItem.querySelector('.param-mode').value = params.mode;
-                    variableItem.querySelector('.param-max').value = params.max;
-                    break;
-                case 'lognormal':
-                    variableItem.querySelector('.param-mean').value = params.mean;
-                    variableItem.querySelector('.param-sigma').value = params.sigma;
-                    break;
-                case 'beta':
-                    variableItem.querySelector('.param-alpha').value = params.alpha;
-                    variableItem.querySelector('.param-beta').value = params.beta;
-                    break;
-                case 'constant':
-                    variableItem.querySelector('.param-value').value = params.value;
-                    break;
-            }
-            
-            // Setup distribution type change event
-            distTypeSelect.addEventListener('change', function() {
-                updateDistributionParams(this.value, paramsContainer);
-            });
-            
-            // Setup remove button
-            const removeBtn = variableItem.querySelector('.remove-variable');
-            removeBtn.addEventListener('click', function() {
-                variableItem.remove();
-            });
-            
-            // Setup preview button
-            const previewBtn = variableItem.querySelector('.preview-distribution');
-            const previewChart = variableItem.querySelector('.preview-chart');
-            
-            previewBtn.addEventListener('click', function() {
-                const varData = getVariableData(variableItem);
-                if (varData) {
-                    previewDistribution(varData.distribution, previewChart);
-                }
-            });
-            
-            variablesContainer.appendChild(variableElement);
-        });
-        
-        // Load formulas
-        scenario.formulas.forEach(formulaData => {
-            const formulaElement = formulaTemplate.content.cloneNode(true);
-            const formulaItem = formulaElement.querySelector('.formula-item');
-            
-            formulaItem.querySelector('.output-name').value = formulaData.output;
-            formulaItem.querySelector('.formula-expression').value = formulaData.expression;
-            
-            // Setup remove button
-            const removeBtn = formulaElement.querySelector('.remove-formula');
-            removeBtn.addEventListener('click', function() {
-                formulaItem.remove();
-            });
-            
-            formulasContainer.appendChild(formulaElement);
-        });
-        
-        // Set simulation count
-        document.getElementById('num-simulations').value = scenario.numSimulations || 10000;
-        
-        alert('Scenario loaded successfully!');
-    }
-    
-    // Add initial variable and formula
-    addVariable();
-    addFormula();
-});
+
+    const section = document.getElementById('results-section')
+    section.style.display = 'block'
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function loadScenario(key) {
+    const scenario = SCENARIOS[key]
+    if (!scenario) return
+
+    const list = document.getElementById('variables-list')
+    list.innerHTML = ''
+    varCount = 0
+
+    scenario.variables.forEach(v => list.appendChild(makeVariableRow(v)))
+
+    // Mark active scenario card
+    document.querySelectorAll('.scenario-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.scenario === key)
+    })
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', () => {
+    // Scenario buttons
+    document.querySelectorAll('.scenario-card').forEach(btn => {
+        btn.addEventListener('click', () => loadScenario(btn.dataset.scenario))
+    })
+
+    // Add variable
+    document.getElementById('add-variable-btn').addEventListener('click', () => {
+        document.getElementById('variables-list').appendChild(makeVariableRow())
+    })
+
+    // Run
+    document.getElementById('run-btn').addEventListener('click', runSimulation)
+
+    // Default: load cost scenario
+    loadScenario('cost')
+})

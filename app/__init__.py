@@ -8,4 +8,7 @@ def create_app():
     from .views import main
     app.register_blueprint(main)
 
+    from .demo import demo
+    app.register_blueprint(demo)
+
     return app

@@ -17,6 +17,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
    🚪 MONTY HALL
    ===================================== */
 let montyTotal = 0, montyStay = 0, montySwitch = 0
+let montyAutoInterval = null
 
 function animateDoors(carDoor, pickedDoor, revealedDoor) {
     // Reset
@@ -63,13 +64,49 @@ function updateMontyBars() {
     const stayRate = montyTotal ? (montyStay / montyTotal * 100) : 0
     const switchRate = montyTotal ? (montySwitch / montyTotal * 100) : 0
 
-    document.getElementById('stay-fill').style.width = stayRate + '%'
-    document.getElementById('switch-fill').style.width = switchRate + '%'
+    const stayFill = document.getElementById('stay-fill')
+    const switchFill = document.getElementById('switch-fill')
+    
+    stayFill.style.width = stayRate + '%'
+    switchFill.style.width = switchRate + '%'
+    
+    // Add dynamic glow to the winning side
+    if (montyTotal > 100) {
+        switchFill.style.boxShadow = '0 0 12px rgba(5,150,105,0.4)'
+    }
+
     document.getElementById('stay-pct').textContent = stayRate.toFixed(1) + '%'
     document.getElementById('switch-pct').textContent = switchRate.toFixed(1) + '%'
     document.getElementById('monty-count').textContent = `累计模拟 ${montyTotal.toLocaleString()} 次`
     document.getElementById('monty-bars').style.display = 'block'
 }
+
+async function runMontyBatch(n) {
+    const res = await fetch('/demo/monty-hall', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ n })
+    })
+    const data = await res.json()
+    montyTotal += data.n
+    montyStay += data.stay_wins
+    montySwitch += data.switch_wins
+    updateMontyBars()
+}
+
+// Auto-run toggle
+document.getElementById('monty-auto-btn').addEventListener('click', function() {
+    if (montyAutoInterval) {
+        clearInterval(montyAutoInterval)
+        montyAutoInterval = null
+        this.textContent = '持续模拟 (Auto)'
+        this.classList.remove('btn-stop')
+    } else {
+        this.textContent = '停止模拟'
+        this.classList.add('btn-stop')
+        montyAutoInterval = setInterval(() => runMontyBatch(100), 200)
+    }
+})
 
 document.querySelectorAll('[data-demo="monty"]').forEach(btn => {
     if (btn.classList.contains('btn-sim')) {
@@ -86,16 +123,7 @@ document.querySelectorAll('[data-demo="monty"]').forEach(btn => {
 
             // Then run batch simulation
             setTimeout(async () => {
-                const res = await fetch('/demo/monty-hall', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ n })
-                })
-                const data = await res.json()
-                montyTotal += data.n
-                montyStay += data.stay_wins
-                montySwitch += data.switch_wins
-                updateMontyBars()
+                await runMontyBatch(n)
                 btn.disabled = false
             }, 1800)
         })
@@ -103,6 +131,13 @@ document.querySelectorAll('[data-demo="monty"]').forEach(btn => {
 
     if (btn.classList.contains('btn-reset')) {
         btn.addEventListener('click', () => {
+            if (montyAutoInterval) {
+                clearInterval(montyAutoInterval)
+                montyAutoInterval = null
+                const autoBtn = document.getElementById('monty-auto-btn')
+                autoBtn.textContent = '持续模拟 (Auto)'
+                autoBtn.classList.remove('btn-stop')
+            }
             montyTotal = montyStay = montySwitch = 0
             for (let i = 0; i < 3; i++) {
                 document.getElementById('door-' + i).className = 'door-wrap'
@@ -218,7 +253,7 @@ document.getElementById('birthday-run-btn').addEventListener('click', async () =
     sample.forEach(d => {
         const span = document.createElement('span')
         span.className = 'bday-dot' + (dupes.has(d) ? ' match' : '')
-        span.textContent = dayOfYear(d)
+        span.innerHTML = `<span class="dot-icon">👤</span> ${dayOfYear(d)}`
         dotsEl.appendChild(span)
     })
 
@@ -286,29 +321,34 @@ document.querySelectorAll('[data-demo="petersburg"]').forEach(btn => {
                 marker: { color: 'rgba(79,70,229,0.65)', line: { color: 'transparent' } },
                 hovertemplate: '约 %{x:.0f} 元：%{y} 次<extra></extra>'
             }], {
-                margin: { t: 10, r: 20, b: 50, l: 50 },
+                margin: { t: 10, r: 20, b: 50, l: 60 },
                 paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                 bargap: 0.05,
-                xaxis: { title: '赢得的钱（元）', gridcolor: '#e4e7ec' },
+                xaxis: { 
+                    title: '赢得的钱（元，对数坐标）', 
+                    type: 'log',
+                    dtick: Math.log10(2), // Highlights powers of 2
+                    gridcolor: '#e4e7ec' 
+                },
                 yaxis: { title: '次数', gridcolor: '#e4e7ec' },
                 shapes: [
                     {
-                        type: 'line', x0: data.median, x1: data.median, y0: 0, y1: 1, yref: 'paper',
+                        type: 'line', x0: Math.log10(data.median), x1: Math.log10(data.median), y0: 0, y1: 1, yref: 'paper', xref: 'x',
                         line: { color: '#dc2626', width: 2, dash: 'dot' }
                     },
                     {
-                        type: 'line', x0: buyPrice, x1: buyPrice, y0: 0, y1: 1, yref: 'paper',
+                        type: 'line', x0: Math.log10(buyPrice), x1: Math.log10(buyPrice), y0: 0, y1: 1, yref: 'paper', xref: 'x',
                         line: { color: '#059669', width: 2, dash: 'dash' }
                     }
                 ],
                 annotations: [
                     {
-                        x: data.median, y: 1, yref: 'paper', text: '中位数', showarrow: false,
-                        font: { color: '#dc2626', size: 11 }, xanchor: 'right'
+                        x: Math.log10(data.median), xanchor: 'right', y: 1, yref: 'paper', xref: 'x', text: `中位数 ${data.median}元`, showarrow: false,
+                        font: { color: '#dc2626', size: 11 }
                     },
                     {
-                        x: buyPrice, y: 0.85, yref: 'paper', text: `买入价 ${buyPrice}元`, showarrow: false,
-                        font: { color: '#059669', size: 11 }, xanchor: 'left'
+                        x: Math.log10(buyPrice), xanchor: 'left', y: 0.85, yref: 'paper', xref: 'x', text: `买入价 ${buyPrice}元`, showarrow: false,
+                        font: { color: '#059669', size: 11 }
                     }
                 ]
             }, { displayModeBar: false, responsive: true })

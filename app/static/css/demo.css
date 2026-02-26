@@ -21,31 +21,6 @@
     line-height: 1.7;
 }
 
-/* Nav */
-.header-nav {
-    display: flex;
-    gap: 4px;
-}
-
-.nav-link {
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-2);
-    text-decoration: none;
-    transition: background .12s, color .12s;
-}
-
-.nav-link:hover {
-    background: var(--surface-2);
-    color: var(--text);
-}
-
-.nav-link.active {
-    background: var(--accent);
-    color: #fff;
-}
 
 /* Tabs */
 .tab-nav {
@@ -141,6 +116,20 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    transition: transform 0.2s, opacity 0.3s;
+}
+
+.door-wrap.clickable {
+    cursor: pointer;
+}
+
+.door-wrap.clickable:hover {
+    transform: translateY(-4px);
+}
+
+.door-wrap.clickable:hover .door-front {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
 }
 
 .door {
@@ -148,8 +137,7 @@
     height: 110px;
     position: relative;
     transform-style: preserve-3d;
-    transition: transform .5s ease;
-    cursor: default;
+    transition: transform .6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .door.open {
@@ -171,6 +159,7 @@
 .door-front {
     background: linear-gradient(135deg, #6d6875, #b5838d);
     border: 3px solid #4a4a5a;
+    color: #fff;
 }
 
 .door-back {
@@ -185,21 +174,155 @@
     color: var(--text-2);
 }
 
+/* Door states */
 .door-wrap.selected .door-front {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, .3);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, .3);
 }
 
 .door-wrap.revealed .door-front {
-    opacity: 0.4;
+    opacity: 0.3;
 }
 
-.door-status {
+.door-wrap.dimmed {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+}
+
+.door-wrap.winner .door-back {
+    border-color: #10b981;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+    background: #ecfdf5;
+}
+
+.door-wrap.loser .door-back {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.game-phase-msg {
     text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-1);
+    min-height: 24px;
+    margin: 20px 0;
+    padding: 0 20px;
+}
+
+/* Decide buttons */
+.decide-btns {
+    background: var(--surface-2);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid var(--border);
+    margin: 10px 0;
+    animation: fadeInSlide 0.3s ease-out;
+}
+
+@keyframes fadeInSlide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.decide-hint {
     font-size: 14px;
     color: var(--text-2);
-    min-height: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    font-weight: 500;
+}
+
+.decide-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.btn-stay, .btn-switch {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-stay {
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 2px solid #e5e7eb;
+}
+
+.btn-stay:hover {
+    background: #e5e7eb;
+    transform: translateY(-1px);
+}
+
+.btn-switch {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.btn-switch:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+}
+
+/* Player stats */
+.player-stats {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 32px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+
+.stat-col {
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.stat-nums {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.stat-win { color: #059669; }
+.stat-lose { color: #dc2626; }
+.stat-sep {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+    margin: 0 2px;
+}
+
+.stat-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+}
+
+/* Convergence section */
+.monty-sim-section {
+    margin-top: 24px;
 }
 
 /* Sim controls */

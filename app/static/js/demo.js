@@ -2,6 +2,32 @@
    概率悖论演示层 — demo.js
    ===================================================== */
 
+/* ── 通用错误 Toast ── */
+function showToast(msg) {
+    let toast = document.getElementById('demo-toast')
+    if (!toast) {
+        toast = document.createElement('div')
+        toast.id = 'demo-toast'
+        Object.assign(toast.style, {
+            position: 'fixed', bottom: '24px', left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#dc2626', color: '#fff',
+            padding: '10px 20px', borderRadius: '8px',
+            fontSize: '14px', zIndex: '9999',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            transition: 'opacity 0.3s'
+        })
+        document.body.appendChild(toast)
+    }
+    toast.textContent = msg
+    toast.style.opacity = '1'
+    clearTimeout(toast._timer)
+    toast._timer = setTimeout(() => { toast.style.opacity = '0' }, 3500)
+}
+
+const basePath = document.body.dataset.basePath || ''
+const apiPath = (path) => basePath + path
+
 /* ── Tab navigation ── */
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -14,141 +40,291 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 })
 
 /* =====================================
-   🚪 MONTY HALL
+   🚪 MONTY HALL — Zone 1: Interactive Game
    ===================================== */
-let montyTotal = 0, montyStay = 0, montySwitch = 0
-let montyAutoInterval = null
 
-function animateDoors(carDoor, pickedDoor, revealedDoor) {
-    // Reset
+// Helper for better randomness
+function getSecureRandomInt(max) {
+    if (window.crypto && window.crypto.getRandomValues) {
+        const array = new Uint32Array(1)
+        window.crypto.getRandomValues(array)
+        return array[0] % max
+    }
+    return Math.floor(Math.random() * max)
+}
+
+// Game state
+const PHASE = { PICK: 'pick', DECIDE: 'decide', DONE: 'done' }
+let gamePhase = PHASE.PICK
+let gameCar = -1       // Which door hides the car
+let gamePicked = -1    // Player's initial pick
+let gameRevealed = -1  // Door the host opens
+let gameSwitch = -1    // The other remaining door
+
+// Personal stats
+const ps = { stayWin: 0, stayLose: 0, switchWin: 0, switchLose: 0 }
+
+function gdoor(i) { return document.getElementById('gdoor-' + i) }
+function gdoorFace(i) { return document.getElementById('gdoor-face-' + i) }
+function gdoorReveal(i) { return document.getElementById('gdoor-reveal-' + i) }
+
+function setGamePhaseMsg(msg) {
+    document.getElementById('game-phase-msg').innerHTML = msg
+}
+
+function resetGame() {
+    gamePhase = PHASE.PICK
+    gameCar = getSecureRandomInt(3) // 提前生成车辆位置，确保每局刷新
+    gamePicked = gameRevealed = gameSwitch = -1
+
+    console.log(`[Monty] 新开一局，车已提前安置 (开发者调试: 门 ${gameCar + 1})`)
+
     for (let i = 0; i < 3; i++) {
-        const wrap = document.getElementById('door-' + i)
-        const face = document.getElementById('door-face-' + i)
-        const back = document.getElementById('door-reveal-' + i)
-        wrap.className = 'door-wrap'
-        face.className = 'door'
-        back.textContent = ''
+        gdoor(i).className = 'door-wrap clickable'
+        gdoorFace(i).className = 'door'
+        gdoorReveal(i).textContent = ''
     }
 
-    const status = document.getElementById('door-status')
+    document.getElementById('decide-btns').style.display = 'none'
+    document.getElementById('play-again-wrap').style.display = 'none'
+    setGamePhaseMsg('👆 点击一扇门，选择你的初始猜测')
+}
 
-    // Step 1: show player pick
-    document.getElementById('door-' + pickedDoor).classList.add('selected')
-    status.textContent = `你选了门 ${pickedDoor + 1}`
+function updatePlayerStats() {
+    document.getElementById('ps-stay-win').textContent = ps.stayWin
+    document.getElementById('ps-stay-lose').textContent = ps.stayLose
+    document.getElementById('ps-switch-win').textContent = ps.switchWin
+    document.getElementById('ps-switch-lose').textContent = ps.switchLose
+    document.getElementById('player-stats').style.display = 'flex'
+}
 
+function handleDoorClick(i) {
+    if (gamePhase !== PHASE.PICK) return
+
+    gamePhase = PHASE.DECIDE
+    gamePicked = i
+
+    console.log(`[Monty] 用户初始选择了门 ${i + 1}`)
+
+    // Highlight picked door
+    for (let d = 0; d < 3; d++) {
+        gdoor(d).className = 'door-wrap' + (d === i ? ' selected' : '')
+    }
+    setGamePhaseMsg(`你选了门 ${i + 1}，主持人正在开门……`)
+
+    // After a short delay, host reveals a goat door
     setTimeout(() => {
-        // Step 2: host reveals a goat
-        const revealEl = document.getElementById('door-reveal-' + revealedDoor)
-        revealEl.textContent = '🐐'
-        document.getElementById('door-face-' + revealedDoor).classList.add('open')
-        document.getElementById('door-' + revealedDoor).classList.add('revealed')
-        status.textContent = `主持人打开了门 ${revealedDoor + 1}（山羊！）`
+        // Host picks a door that is neither the player's pick nor the car
+        const candidates = [0, 1, 2].filter(d => d !== gamePicked && d !== gameCar)
+        gameRevealed = candidates[getSecureRandomInt(candidates.length)]
+        // If player picked the car, candidates has 2 entries (both goats), pick randomly
+        // If player picked a goat, candidates has exactly 1 entry (the other goat door)
+
+        console.log(`[Monty] 主持人揭开了门 ${gameRevealed + 1} (山羊)`)
+
+        gdoorReveal(gameRevealed).textContent = '🐐'
+        gdoorFace(gameRevealed).classList.add('open')
+        gdoor(gameRevealed).classList.add('revealed')
+
+        gameSwitch = [0, 1, 2].find(d => d !== gamePicked && d !== gameRevealed)
+
+        setGamePhaseMsg(`主持人打开了门 ${gameRevealed + 1}，是山羊！你要换到门 ${gameSwitch + 1} 吗？`)
+        document.getElementById('decide-btns').style.display = 'block'
     }, 600)
+}
 
+function playerDecide(stayChoice) {
+    if (gamePhase !== PHASE.DECIDE) return
+    gamePhase = PHASE.DONE
+
+    document.getElementById('decide-btns').style.display = 'none'
+
+    const finalDoor = stayChoice ? gamePicked : gameSwitch
+    const won = finalDoor === gameCar
+
+    // Animate all doors open
     setTimeout(() => {
-        // Step 3: reveal all doors
-        for (let i = 0; i < 3; i++) {
-            const back = document.getElementById('door-reveal-' + i)
-            back.textContent = i === carDoor ? '🚗' : '🐐'
-            document.getElementById('door-face-' + i).classList.add('open')
+        for (let d = 0; d < 3; d++) {
+            gdoorReveal(d).textContent = d === gameCar ? '🚗' : '🐐'
+            gdoorFace(d).classList.add('open')
+
+            // Dim all except the final choice
+            if (d !== finalDoor) gdoor(d).classList.add('dimmed')
         }
-        const switchDoor = [0, 1, 2].find(d => d !== pickedDoor && d !== revealedDoor)
-        const switchWins = switchDoor === carDoor
-        status.textContent = switchWins
-            ? `换门赢！🎉 门 ${switchDoor + 1} 是车`
-            : `不换赢！🎉 门 ${pickedDoor + 1} 是车`
-    }, 1400)
+
+        // Win/lose styling on final door
+        gdoor(finalDoor).classList.add(won ? 'winner' : 'loser')
+
+        // Update stats
+        if (stayChoice) {
+            won ? ps.stayWin++ : ps.stayLose++
+        } else {
+            won ? ps.switchWin++ : ps.switchLose++
+        }
+        updatePlayerStats()
+
+        const action = stayChoice ? '坚持不换' : '换门'
+        if (won) {
+            setGamePhaseMsg(`🎉 你赢了！${action}，门 ${finalDoor + 1} 是车！`)
+        } else {
+            setGamePhaseMsg(`😔 你输了，${action}，车其实在门 ${gameCar + 1}。`)
+        }
+
+        document.getElementById('play-again-wrap').style.display = 'block'
+    }, 200)
 }
 
-function updateMontyBars() {
-    const stayRate = montyTotal ? (montyStay / montyTotal * 100) : 0
-    const switchRate = montyTotal ? (montySwitch / montyTotal * 100) : 0
+// Wire up door clicks
+for (let i = 0; i < 3; i++) {
+    gdoor(i).addEventListener('click', () => handleDoorClick(i))
+}
 
-    const stayFill = document.getElementById('stay-fill')
-    const switchFill = document.getElementById('switch-fill')
-    
-    stayFill.style.width = stayRate + '%'
-    switchFill.style.width = switchRate + '%'
-    
-    // Add dynamic glow to the winning side
-    if (montyTotal > 100) {
-        switchFill.style.boxShadow = '0 0 12px rgba(5,150,105,0.4)'
+document.getElementById('btn-stay').addEventListener('click', () => playerDecide(true))
+document.getElementById('btn-switch').addEventListener('click', () => playerDecide(false))
+document.getElementById('btn-play-again').addEventListener('click', resetGame)
+
+// Init game on load
+resetGame()
+
+/* =====================================
+   🚪 MONTY HALL — Zone 2: Convergence Chart
+   ===================================== */
+
+let convRunning = false
+let convAnimId = null
+let convTotal = 0, convStay = 0, convSwitch = 0
+let convChartReady = false
+
+// Run a batch of n pure-JS Monty Hall simulations
+function runMontyBatchJS(n) {
+    let stayWins = 0, switchWins = 0
+    for (let i = 0; i < n; i++) {
+        const car = Math.floor(Math.random() * 3)
+        const pick = Math.floor(Math.random() * 3)
+        // Stay wins if initial pick is car
+        if (pick === car) stayWins++
+        else switchWins++
     }
-
-    document.getElementById('stay-pct').textContent = stayRate.toFixed(1) + '%'
-    document.getElementById('switch-pct').textContent = switchRate.toFixed(1) + '%'
-    document.getElementById('monty-count').textContent = `累计模拟 ${montyTotal.toLocaleString()} 次`
-    document.getElementById('monty-bars').style.display = 'block'
+    return { stayWins, switchWins }
 }
 
-async function runMontyBatch(n) {
-    const res = await fetch('/demo/monty-hall', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ n })
-    })
-    const data = await res.json()
-    montyTotal += data.n
-    montyStay += data.stay_wins
-    montySwitch += data.switch_wins
-    updateMontyBars()
+function initConvergenceChart() {
+    Plotly.newPlot('monty-convergence-chart', [
+        {
+            x: [], y: [],
+            mode: 'lines',
+            name: '🔒 不换胜率',
+            line: { color: '#ef4444', width: 2.5 },
+            hovertemplate: '%{x} 次 → %{y:.1f}%<extra>不换</extra>'
+        },
+        {
+            x: [], y: [],
+            mode: 'lines',
+            name: '🔄 换门胜率',
+            line: { color: '#10b981', width: 2.5 },
+            hovertemplate: '%{x} 次 → %{y:.1f}%<extra>换门</extra>'
+        }
+    ], {
+        margin: { t: 20, r: 20, b: 50, l: 55 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        legend: { orientation: 'h', y: 1.12, x: 0, font: { size: 13 } },
+        xaxis: {
+            title: '模拟次数',
+            gridcolor: '#e4e7ec',
+            type: 'log',
+            range: [Math.log10(10), Math.log10(20000)]
+        },
+        yaxis: {
+            title: '胜率 (%)',
+            gridcolor: '#e4e7ec',
+            range: [0, 100]
+        },
+        shapes: [
+            {
+                type: 'line', x0: 0, x1: 1, xref: 'paper',
+                y0: 66.7, y1: 66.7,
+                line: { color: '#10b981', width: 1.2, dash: 'dot' }
+            },
+            {
+                type: 'line', x0: 0, x1: 1, xref: 'paper',
+                y0: 33.3, y1: 33.3,
+                line: { color: '#ef4444', width: 1.2, dash: 'dot' }
+            }
+        ],
+        annotations: [
+            {
+                x: 1, xref: 'paper', xanchor: 'right',
+                y: 66.7, yanchor: 'bottom',
+                text: '理论值 66.7%', showarrow: false,
+                font: { color: '#059669', size: 11 }
+            },
+            {
+                x: 1, xref: 'paper', xanchor: 'right',
+                y: 33.3, yanchor: 'top',
+                text: '理论值 33.3%', showarrow: false,
+                font: { color: '#dc2626', size: 11 }
+            }
+        ]
+    }, { displayModeBar: false, responsive: true })
+    convChartReady = true
 }
 
-// Auto-run toggle
-document.getElementById('monty-auto-btn').addEventListener('click', function() {
-    if (montyAutoInterval) {
-        clearInterval(montyAutoInterval)
-        montyAutoInterval = null
-        this.textContent = '持续模拟 (Auto)'
-        this.classList.remove('btn-stop')
-    } else {
-        this.textContent = '停止模拟'
-        this.classList.add('btn-stop')
-        montyAutoInterval = setInterval(() => runMontyBatch(100), 200)
-    }
+function convTick() {
+    if (!convRunning) return
+
+    const BATCH = 50
+    const { stayWins, switchWins } = runMontyBatchJS(BATCH)
+    convTotal += BATCH
+    convStay += stayWins
+    convSwitch += switchWins
+
+    const stayRate = convStay / convTotal * 100
+    const switchRate = convSwitch / convTotal * 100
+
+    Plotly.extendTraces('monty-convergence-chart', {
+        x: [[convTotal], [convTotal]],
+        y: [[stayRate], [switchRate]]
+    }, [0, 1])
+
+    document.getElementById('conv-count').textContent =
+        `累计模拟 ${convTotal.toLocaleString()} 次 | 不换 ${stayRate.toFixed(1)}%，换门 ${switchRate.toFixed(1)}%`
+
+    // Slow down as we accumulate more data
+    const delay = convTotal < 500 ? 40 : convTotal < 3000 ? 80 : 200
+    convAnimId = setTimeout(convTick, delay)
+}
+
+function startConvergence() {
+    if (!convChartReady) initConvergenceChart()
+    convRunning = true
+    document.getElementById('conv-start-btn').textContent = '⏸ 暂停'
+    document.getElementById('conv-start-btn').classList.add('btn-stop')
+    convTick()
+}
+
+function stopConvergence() {
+    convRunning = false
+    clearTimeout(convAnimId)
+    document.getElementById('conv-start-btn').textContent = '▶ 继续模拟'
+    document.getElementById('conv-start-btn').classList.remove('btn-stop')
+}
+
+function resetConvergence() {
+    stopConvergence()
+    convTotal = convStay = convSwitch = 0
+    convChartReady = false
+    Plotly.purge('monty-convergence-chart')
+    document.getElementById('conv-count').textContent = ''
+    document.getElementById('conv-start-btn').textContent = '▶ 开始模拟'
+}
+
+document.getElementById('conv-start-btn').addEventListener('click', function () {
+    if (convRunning) stopConvergence()
+    else startConvergence()
 })
 
-document.querySelectorAll('[data-demo="monty"]').forEach(btn => {
-    if (btn.classList.contains('btn-sim')) {
-        btn.addEventListener('click', async () => {
-            const n = parseInt(btn.dataset.n)
-            btn.disabled = true
-
-            // Play one door animation first (using random values)
-            const car = Math.floor(Math.random() * 3)
-            const pick = Math.floor(Math.random() * 3)
-            const options = [0, 1, 2].filter(d => d !== car && d !== pick)
-            const reveal = options[Math.floor(Math.random() * options.length)] ?? [0, 1, 2].find(d => d !== pick)
-            animateDoors(car, pick, reveal)
-
-            // Then run batch simulation
-            setTimeout(async () => {
-                await runMontyBatch(n)
-                btn.disabled = false
-            }, 1800)
-        })
-    }
-
-    if (btn.classList.contains('btn-reset')) {
-        btn.addEventListener('click', () => {
-            if (montyAutoInterval) {
-                clearInterval(montyAutoInterval)
-                montyAutoInterval = null
-                const autoBtn = document.getElementById('monty-auto-btn')
-                autoBtn.textContent = '持续模拟 (Auto)'
-                autoBtn.classList.remove('btn-stop')
-            }
-            montyTotal = montyStay = montySwitch = 0
-            for (let i = 0; i < 3; i++) {
-                document.getElementById('door-' + i).className = 'door-wrap'
-                document.getElementById('door-face-' + i).className = 'door'
-                document.getElementById('door-reveal-' + i).textContent = ''
-            }
-            document.getElementById('door-status').textContent = '点击下方按钮，开始模拟'
-            document.getElementById('monty-bars').style.display = 'none'
-        })
-    }
-})
+document.getElementById('conv-reset-btn').addEventListener('click', resetConvergence)
 
 /* =====================================
    🎂 BIRTHDAY PARADOX
@@ -184,12 +360,22 @@ document.getElementById('birthday-run-btn').addEventListener('click', async () =
     btn.textContent = '模拟中…'
     document.getElementById('birthday-loading').style.display = 'block'
 
-    const res = await fetch('/demo/birthday', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_group: 60, trials: 5000, sample_size: 30 })
-    })
-    const data = await res.json()
+    let data
+    try {
+        const res = await fetch(apiPath('/demo/birthday'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ max_group: 60, trials: 5000, sample_size: 30 })
+        })
+        if (!res.ok) throw new Error(`服务器错误 ${res.status}`)
+        data = await res.json()
+    } catch (e) {
+        showToast('生日悖论模拟失败：' + e.message)
+        document.getElementById('birthday-loading').style.display = 'none'
+        btn.textContent = '运行蒙特卡洛模拟（5,000 次）'
+        btn.disabled = false
+        return
+    }
     birthdayCurve = data.curve
     document.getElementById('birthday-loading').style.display = 'none'
 
@@ -300,12 +486,21 @@ document.querySelectorAll('[data-demo="petersburg"]').forEach(btn => {
             btn.disabled = true
             btn.textContent = '模拟中…'
 
-            const res = await fetch('/demo/petersburg', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ n, buy_price: buyPrice })
-            })
-            const data = await res.json()
+            let data
+            try {
+                const res = await fetch(apiPath('/demo/petersburg'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ n, buy_price: buyPrice })
+                })
+                if (!res.ok) throw new Error(`服务器错误 ${res.status}`)
+                data = await res.json()
+            } catch (e) {
+                showToast('圣彼得堡悖论模拟失败：' + e.message)
+                btn.disabled = false
+                btn.textContent = '模拟 10,000 次'
+                return
+            }
 
             document.getElementById('pete-median').textContent = data.median + ' 元'
             document.getElementById('pete-mean').textContent = data.mean.toFixed(1) + ' 元'
@@ -324,11 +519,11 @@ document.querySelectorAll('[data-demo="petersburg"]').forEach(btn => {
                 margin: { t: 10, r: 20, b: 50, l: 60 },
                 paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
                 bargap: 0.05,
-                xaxis: { 
-                    title: '赢得的钱（元，对数坐标）', 
+                xaxis: {
+                    title: '赢得的钱（元，对数坐标）',
                     type: 'log',
                     dtick: Math.log10(2), // Highlights powers of 2
-                    gridcolor: '#e4e7ec' 
+                    gridcolor: '#e4e7ec'
                 },
                 yaxis: { title: '次数', gridcolor: '#e4e7ec' },
                 shapes: [

@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-Hans">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>风险模拟器 — 蒙特卡洛</title>
-  <meta name="description" content="用三个数字量化不确定性，看清最好、最差和最可能的结果。">
+  <meta name="description" content="用蒙特卡洛模拟量化人生不确定性：退休规划、创业分析、投资风险。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.30.0/plotly.min.js"></script>
 </head>
-<body>
+
+<body data-base-path="{{ request.script_root }}">
   <div class="app-shell">
 
     <!-- Header -->
@@ -19,74 +21,144 @@
       <div class="header-inner">
         <div class="logo">
           <span class="logo-icon">◈</span>
-          <span class="logo-text">风险模拟器</span>
+          <span class="logo-text">风险模拟器（蒙特卡洛）</span>
         </div>
-        <p class="header-tagline">用三个数字，看清未来的可能范围</p>
+        <nav class="header-nav">
+          <a href="{{ url_for('main.index') }}" class="nav-link active">风险分析</a>
+          <a href="{{ url_for('demo.demo_index') }}" class="nav-link">概率演示</a>
+        </nav>
       </div>
     </header>
 
     <main class="app-main">
 
-      <!-- Step 1: Preset Scenarios -->
+      <!-- Step 1: Scenario Cards -->
       <section class="step-section">
         <div class="step-header">
           <span class="step-num">1</span>
           <div>
             <h2>选择场景</h2>
-            <p class="step-desc">选一个接近你情况的场景，或跳过直接添加变量</p>
+            <p class="step-desc">蒙特卡洛模拟帮你量化人生中的不确定性</p>
           </div>
         </div>
         <div class="scenarios-grid">
-          <button class="scenario-card" data-scenario="cost">
-            <span class="scenario-icon">📋</span>
-            <strong>项目成本估算</strong>
-            <span>评估项目各项支出的总成本范围</span>
+          <button class="scenario-card active" data-scenario="retirement" id="sc-retirement">
+            <span class="scenario-icon">🏖️</span>
+            <strong>退休规划</strong>
+            <span>我的钱够不够花到老？</span>
           </button>
-          <button class="scenario-card" data-scenario="revenue">
-            <span class="scenario-icon">💰</span>
-            <strong>销售收入预测</strong>
-            <span>综合多个销售因素预测营收区间</span>
+          <button class="scenario-card" data-scenario="startup" id="sc-startup">
+            <span class="scenario-icon">🚀</span>
+            <strong>创业分析</strong>
+            <span class="coming-soon-badge">即将上线</span>
           </button>
-          <button class="scenario-card" data-scenario="investment">
-            <span class="scenario-icon">📈</span>
-            <strong>投资回报分析</strong>
-            <span>评估初始投入与回报的盈亏概率</span>
+          <button class="scenario-card" data-scenario="invest" id="sc-invest">
+            <span class="scenario-icon">📊</span>
+            <strong>投资风险</strong>
+            <span class="coming-soon-badge">即将上线</span>
           </button>
         </div>
       </section>
 
-      <!-- Step 2: Variables -->
-      <section class="step-section">
+      <!-- Step 2: Retirement Input Form -->
+      <section class="step-section" id="retirement-section">
         <div class="step-header">
           <span class="step-num">2</span>
           <div>
-            <h2>设定变量</h2>
-            <p class="step-desc">每个变量填三个数字：最差、最可能、最好</p>
+            <h2>设定参数</h2>
+            <p class="step-desc">拖动滑块调整你的个人情况</p>
           </div>
         </div>
 
-        <div class="variables-header-row">
-          <span class="col-label col-name">变量名称</span>
-          <span class="col-label col-val">😟 最差情况</span>
-          <span class="col-label col-val">😐 最可能</span>
-          <span class="col-label col-val">😊 最好情况</span>
-          <span class="col-label col-del"></span>
+        <div class="retirement-form" id="retirement-form">
+          <!-- Row 1: Age parameters -->
+          <div class="form-group">
+            <label class="form-label">当前年龄</label>
+            <div class="slider-row">
+              <input type="range" id="r-current-age" min="18" max="65" value="30" class="form-slider">
+              <span class="slider-val" id="r-current-age-val">30</span>
+              <span class="slider-unit">岁</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">计划退休年龄</label>
+            <div class="slider-row">
+              <input type="range" id="r-retire-age" min="40" max="75" value="60" class="form-slider">
+              <span class="slider-val" id="r-retire-age-val">60</span>
+              <span class="slider-unit">岁</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">预期寿命</label>
+            <div class="slider-row">
+              <input type="range" id="r-life-exp" min="65" max="100" value="85" class="form-slider">
+              <span class="slider-val" id="r-life-exp-val">85</span>
+              <span class="slider-unit">岁</span>
+            </div>
+          </div>
+
+          <!-- Row 2: Financial parameters -->
+          <div class="form-group">
+            <label class="form-label">当前存款</label>
+            <div class="slider-row">
+              <input type="range" id="r-savings" min="0" max="5000000" step="10000" value="200000" class="form-slider">
+              <span class="slider-val" id="r-savings-val">20</span>
+              <span class="slider-unit">万元</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">每月储蓄</label>
+            <div class="slider-row">
+              <input type="range" id="r-monthly-save" min="0" max="50000" step="500" value="5000" class="form-slider">
+              <span class="slider-val" id="r-monthly-save-val">5,000</span>
+              <span class="slider-unit">元/月</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">退休后月支出</label>
+            <div class="slider-row">
+              <input type="range" id="r-monthly-expense" min="1000" max="50000" step="500" value="8000"
+                class="form-slider">
+              <span class="slider-val" id="r-monthly-expense-val">8,000</span>
+              <span class="slider-unit">元/月</span>
+            </div>
+          </div>
+
+          <!-- Row 3: Market parameters -->
+          <div class="form-group">
+            <label class="form-label">年化收益率（均值）</label>
+            <div class="slider-row">
+              <input type="range" id="r-return-mean" min="0" max="0.20" step="0.01" value="0.07" class="form-slider">
+              <span class="slider-val" id="r-return-mean-val">7</span>
+              <span class="slider-unit">%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">收益率波动（标准差）</label>
+            <div class="slider-row">
+              <input type="range" id="r-return-std" min="0.01" max="0.40" step="0.01" value="0.15" class="form-slider">
+              <span class="slider-val" id="r-return-std-val">15</span>
+              <span class="slider-unit">%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">通胀率</label>
+            <div class="slider-row">
+              <input type="range" id="r-inflation" min="0" max="0.10" step="0.005" value="0.03" class="form-slider">
+              <span class="slider-val" id="r-inflation-val">3</span>
+              <span class="slider-unit">%</span>
+            </div>
+          </div>
         </div>
-
-        <div id="variables-list"></div>
-
-        <button class="btn-add" id="add-variable-btn">
-          <span>＋</span> 添加变量
-        </button>
       </section>
 
       <!-- Step 3: Run -->
-      <section class="step-section run-section">
+      <section class="step-section run-section" id="run-section">
         <div class="step-header">
           <span class="step-num">3</span>
           <div>
             <h2>运行模拟</h2>
-            <p class="step-desc">系统将模拟 <strong>10,000</strong> 种可能的组合</p>
+            <p class="step-desc">2,000 次蒙特卡洛模拟，看清你的退休前景</p>
           </div>
         </div>
         <button class="btn-run" id="run-btn">
@@ -104,45 +176,69 @@
           </div>
         </div>
 
-        <!-- Key conclusion -->
-        <div class="conclusion-card">
-          <div class="conclusion-main" id="conclusion-text"></div>
-          <div class="conclusion-bands">
-            <div class="band band-bad">
-              <div class="band-label">悲观 (P10)</div>
-              <div class="band-value" id="p10-val">—</div>
-            </div>
-            <div class="band band-mid">
-              <div class="band-label">最可能 (P50)</div>
-              <div class="band-value" id="p50-val">—</div>
-            </div>
-            <div class="band band-good">
-              <div class="band-label">乐观 (P90)</div>
-              <div class="band-value" id="p90-val">—</div>
-            </div>
+        <!-- Success rate hero -->
+        <div class="success-hero" id="success-hero">
+          <div class="success-ring" id="success-ring">
+            <svg viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52" />
+              <circle class="ring-fg" cx="60" cy="60" r="52" id="ring-fg" stroke-dasharray="326.73"
+                stroke-dashoffset="326.73" />
+            </svg>
+            <div class="success-pct" id="success-pct">—%</div>
+          </div>
+          <div class="success-detail">
+            <h3>退休存活率</h3>
+            <p>在 <strong id="res-n">2,000</strong> 次模拟中，有 <mark id="res-pct-mark">—%</mark> 的路径在预期寿命前仍有余额。</p>
           </div>
         </div>
 
-        <!-- Chart -->
-        <div class="chart-card">
-          <h3>结果分布</h3>
-          <div id="histogram-plot" style="height:320px;"></div>
+        <!-- Key stats -->
+        <div class="conclusion-bands">
+          <div class="band band-bad">
+            <div class="band-label">退休时财富（中位数）</div>
+            <div class="band-value" id="retire-wealth-val">—</div>
+          </div>
+          <div class="band band-mid">
+            <div class="band-label">终值 P10（悲观）</div>
+            <div class="band-value" id="final-p10-val">—</div>
+          </div>
+          <div class="band band-good">
+            <div class="band-label">终值 P90（乐观）</div>
+            <div class="band-value" id="final-p90-val">—</div>
+          </div>
         </div>
 
-        <!-- Sensitivity -->
-        <div class="chart-card" id="sensitivity-card" style="display:none;">
-          <h3>影响因素排序 <span class="chart-hint">哪个变量对结果影响最大？</span></h3>
-          <div id="sensitivity-plot" style="height:220px;"></div>
+        <!-- Fan Chart -->
+        <div class="chart-card">
+          <h3>财富轨迹扇形图 <span class="chart-hint">数千种可能的人生</span></h3>
+          <div id="fan-chart" style="height:380px;"></div>
+        </div>
+
+        <!-- Final distribution -->
+        <div class="chart-card">
+          <h3>终值分布 <span class="chart-hint">最终财富的概率分布</span></h3>
+          <div id="final-dist-chart" style="height:280px;"></div>
+        </div>
+      </section>
+
+      <!-- Coming Soon Section -->
+      <section class="step-section" id="coming-soon-section" style="display:none;">
+        <div class="coming-soon-card">
+          <div class="coming-soon-icon">🚧</div>
+          <h3>即将上线</h3>
+          <p>这个场景正在开发中，敬请期待！</p>
+          <button class="btn-back-retirement" id="btn-back-retirement">← 返回退休规划</button>
         </div>
       </section>
 
     </main>
 
     <footer class="app-footer">
-      <p>基于蒙特卡洛模拟，每次运行 10,000 次随机采样。结果仅供参考，不构成决策依据。</p>
+      <p>基于蒙特卡洛模拟，每次运行 2,000 次随机路径采样。结果仅供参考，不构成决策依据。</p>
     </footer>
   </div>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
+
 </html>

@@ -47,6 +47,7 @@ body {
 .header-inner {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 20px;
     flex-wrap: wrap;
 }
@@ -71,6 +72,32 @@ body {
 .header-tagline {
     color: var(--text-2);
     font-size: 14px;
+}
+
+/* ===== Navigation ===== */
+.header-nav {
+    display: flex;
+    gap: 4px;
+}
+
+.nav-link {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-2);
+    text-decoration: none;
+    transition: background .12s, color .12s;
+}
+
+.nav-link:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+.nav-link.active {
+    background: var(--accent);
+    color: #fff;
 }
 
 /* ===== Step Sections ===== */
@@ -227,6 +254,33 @@ body {
     text-align: right;
 }
 
+/* Name cell: stacks name input + dist selector */
+.v-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.v-dist {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text-2);
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: border-color .12s, color .12s;
+}
+
+.v-dist:hover,
+.v-dist:focus {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 .btn-delete {
     background: none;
     border: none;
@@ -267,6 +321,40 @@ body {
 .btn-add:hover {
     border-color: var(--accent);
     color: var(--accent);
+}
+
+/* ===== Sim Count Selector ===== */
+.sim-count-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.sim-count-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-2);
+}
+
+.sim-count-select {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: border-color .15s;
+}
+
+.sim-count-select:focus,
+.sim-count-select:hover {
+    border-color: var(--accent);
 }
 
 /* ===== Run Button ===== */
@@ -427,18 +515,217 @@ body {
     line-height: 1.6;
 }
 
+/* ===== Retirement Form ===== */
+.retirement-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+    letter-spacing: 0.2px;
+}
+
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-slider {
+    flex: 1;
+    height: 5px;
+    appearance: none;
+    background: linear-gradient(90deg, var(--accent), #818cf8);
+    border-radius: 99px;
+    outline: none;
+    cursor: pointer;
+}
+
+.form-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2.5px solid #fff;
+    box-shadow: 0 1px 4px rgba(79, 70, 229, .4);
+    cursor: pointer;
+    transition: transform .1s;
+}
+
+.form-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.slider-val {
+    min-width: 36px;
+    text-align: right;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.slider-unit {
+    font-size: 12px;
+    color: var(--text-2);
+    font-weight: 500;
+    min-width: 32px;
+}
+
+/* ===== Success Rate Ring ===== */
+.success-hero {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px 32px;
+    margin-bottom: 20px;
+}
+
+.success-ring {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+}
+
+.success-ring svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+}
+
+.ring-bg {
+    fill: none;
+    stroke: #e4e7ec;
+    stroke-width: 10;
+}
+
+.ring-fg {
+    fill: none;
+    stroke: var(--good);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s ease-out;
+}
+
+.success-pct {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--good);
+}
+
+.success-detail h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.success-detail p {
+    font-size: 15px;
+    color: var(--text-2);
+    line-height: 1.7;
+}
+
+.success-detail mark {
+    background: #ede9fe;
+    color: var(--accent);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 700;
+}
+
+/* ===== Coming Soon ===== */
+.coming-soon-badge {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+}
+
+.coming-soon-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 60px 32px;
+    text-align: center;
+}
+
+.coming-soon-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.coming-soon-card h3 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.coming-soon-card p {
+    color: var(--text-2);
+    font-size: 15px;
+    margin-bottom: 24px;
+}
+
+.btn-back-retirement {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .12s, transform .1s;
+}
+
+.btn-back-retirement:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 560px) {
 
-    .variables-header-row,
-    .variable-row {
-        grid-template-columns: 1.5fr 1fr 1fr 1fr 32px;
-        gap: 6px;
-        padding: 8px 10px;
+    .retirement-form {
+        grid-template-columns: 1fr;
+        padding: 20px 16px;
     }
 
-    .col-label {
-        font-size: 11px;
+    .success-hero {
+        flex-direction: column;
+        text-align: center;
+        padding: 24px 20px;
     }
 
     .conclusion-bands {
@@ -447,5 +734,11 @@ body {
 
     .scenarios-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) and (min-width: 561px) {
+    .retirement-form {
+        grid-template-columns: 1fr 1fr;
     }
 }

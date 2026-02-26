@@ -1,80 +1,39 @@
-# Monte Carlo Simulator
+# 风险模拟器（蒙特卡洛）
 
-A web-based Monte Carlo simulation tool that allows users to define variables with different probability distributions, create formulas, and analyze simulation results with visualizations.
+## 项目背景
+围绕个人与家庭的长期财务不确定性，提供直观、可交互的蒙特卡洛模拟体验，帮助用户更清晰地理解“概率与风险”。
 
-## Features
+## 项目目标
+- 用可视化方式解释风险与不确定性
+- 提供“退休规划”场景的快速模拟
+- 通过概率悖论演示强化概率直觉
 
-- Define multiple random variables with various distribution types:
-  - Normal distribution
-  - Uniform distribution
-  - Triangular distribution
-  - Log-normal distribution
-  - Beta distribution
-  - Constant values
-  
-- Create formulas using defined variables
-- Run Monte Carlo simulations with configurable number of iterations
-- Visualize results with:
-  - Probability distribution histograms
-  - Cumulative distribution function (CDF) curves
-  - Sensitivity analysis
-  - Scatter plots to explore variable relationships
-  - Statistical summaries
-  
-- Save and load simulation scenarios
+## 当前功能
+- 退休规划模拟：输入年龄、储蓄、收益率、通胀等参数，输出成功率与分位路径
+- 概率演示：三门问题、生日悖论、圣彼得堡悖论
+- 图表可视化：分位扇形图与分布直方图
 
-## Installation
-
-1. Clone the repository:
-```
-git clone https://github.com/yourusername/monte-carlo-simulator.git
-cd monte-carlo-simulator
-```
-
-2. Create and activate a virtual environment (optional but recommended):
-```
+## 运行方式（本地）
+```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```
+source venv/bin/activate
 pip install -r requirements.txt
-```
-
-4. Run the application:
-```
 python app.py
 ```
 
-5. Open your browser and navigate to:
+浏览器访问：
+- http://127.0.0.1:5001/
+- http://127.0.0.1:5001/demo
+
+## 运行方式（Docker）
+```bash
+docker build -t montecarlo:latest .
+docker run -d --name montecarlo -p 5001:5001 --restart=always montecarlo:latest
 ```
-http://127.0.0.1:5000/
-```
 
-## Usage
-
-1. **Define Variables**: Click "Add Variable" to create random variables with different distribution types
-2. **Create Formulas**: Define mathematical formulas using your variables
-3. **Set Simulation Parameters**: Choose the number of simulation iterations
-4. **Run Simulation**: Click "Run Simulation" to execute the Monte Carlo analysis
-5. **View Results**: Explore the generated visualizations and statistical data
-6. **Save/Load Scenarios**: Save your configurations for later use
-
-## Example Use Cases
-
-- Project cost estimation with uncertainty
-- Risk analysis for financial investments
-- Engineering reliability assessments
-- Supply chain optimization
-- Portfolio risk management
-- Sales forecasting with multiple variables
-
-## Technologies Used
-
-- Backend: Python, Flask, NumPy, SciPy, Pandas
-- Frontend: HTML, CSS, JavaScript, Bootstrap, Plotly.js, Chart.js
+## 技术栈
+- 后端：Python, Flask, NumPy, Pandas, SciPy
+- 前端：HTML, CSS, JavaScript, Plotly.js
 
 ## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License

@@ -14,18 +14,18 @@
     <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.30.0/plotly.min.js"></script>
 </head>
 
-<body>
+<body data-base-path="{{ request.script_root }}">
     <div class="app-shell">
 
         <header class="app-header">
             <div class="header-inner">
                 <div class="logo">
                     <span class="logo-icon">◈</span>
-                    <a class="logo-text" href="/" style="text-decoration:none;color:inherit;">风险模拟器</a>
+                    <a class="logo-text" href="{{ url_for('main.index') }}" style="text-decoration:none;color:inherit;">风险模拟器（蒙特卡洛）</a>
                 </div>
                 <nav class="header-nav">
-                    <a href="/" class="nav-link">风险分析</a>
-                    <a href="/demo" class="nav-link active">概率演示</a>
+                    <a href="{{ url_for('main.index') }}" class="nav-link">风险分析</a>
+                    <a href="{{ url_for('demo.demo_index') }}" class="nav-link active">概率演示</a>
                 </nav>
             </div>
         </header>
@@ -44,71 +44,102 @@
 
         <!-- ===== MONTY HALL ===== -->
         <section class="tab-panel active" id="tab-monty">
-            <div class="paradox-card">
+
+            <!-- Zone 1: Interactive Game -->
+            <div class="paradox-card monty-game-section">
                 <div class="paradox-header">
                     <div class="paradox-question">
-                        <div class="question-badge">你的直觉</div>
+                        <div class="question-badge">亲身体验</div>
                         <p>有三扇门，一扇后面是车，两扇是山羊。你选了一扇后，主持人打开另一扇（必定是山羊）。<strong>你应该换门吗？</strong></p>
-                        <p class="intuition-text">大多数人觉得：换不换都是 <strong>50%</strong>，无所谓。</p>
+                        <p class="intuition-text">大多数人觉得：换不换都是 <strong>50%</strong>，无所谓。先自己玩几局试试。</p>
                     </div>
                 </div>
 
-                <!-- Door animation -->
-                <div class="doors-stage">
-                    <div class="door-wrap" id="door-0">
-                        <div class="door" id="door-face-0">
+                <!-- Doors -->
+                <div class="doors-stage" id="game-doors-stage">
+                    <div class="door-wrap" id="gdoor-0" data-idx="0">
+                        <div class="door" id="gdoor-face-0">
                             <div class="door-front">🚪</div>
-                            <div class="door-back" id="door-reveal-0"></div>
+                            <div class="door-back" id="gdoor-reveal-0"></div>
                         </div>
                         <div class="door-label">门 1</div>
                     </div>
-                    <div class="door-wrap" id="door-1">
-                        <div class="door" id="door-face-1">
+                    <div class="door-wrap" id="gdoor-1" data-idx="1">
+                        <div class="door" id="gdoor-face-1">
                             <div class="door-front">🚪</div>
-                            <div class="door-back" id="door-reveal-1"></div>
+                            <div class="door-back" id="gdoor-reveal-1"></div>
                         </div>
                         <div class="door-label">门 2</div>
                     </div>
-                    <div class="door-wrap" id="door-2">
-                        <div class="door" id="door-face-2">
+                    <div class="door-wrap" id="gdoor-2" data-idx="2">
+                        <div class="door" id="gdoor-face-2">
                             <div class="door-front">🚪</div>
-                            <div class="door-back" id="door-reveal-2"></div>
+                            <div class="door-back" id="gdoor-reveal-2"></div>
                         </div>
                         <div class="door-label">门 3</div>
                     </div>
                 </div>
-                <p class="door-status" id="door-status">点击下方按钮，开始模拟</p>
 
-                <!-- Controls -->
-                <div class="sim-controls">
-                    <button class="btn-sim" data-demo="monty" data-n="100">模拟 100 次</button>
-                    <button class="btn-sim" data-demo="monty" data-n="1000">模拟 1,000 次</button>
-                    <button class="btn-sim" id="monty-auto-btn">持续模拟 (Auto)</button>
-                    <button class="btn-reset" data-demo="monty">重置</button>
+                <p class="game-phase-msg" id="game-phase-msg">👆 点击一扇门，选择你的初始猜测</p>
+
+                <!-- Decide buttons (shown after host reveals) -->
+                <div class="decide-btns" id="decide-btns" style="display:none;">
+                    <p class="decide-hint">主持人已揭开山羊门——你要换吗？</p>
+                    <div class="decide-row">
+                        <button class="btn-stay" id="btn-stay">🔒 坚持不换</button>
+                        <button class="btn-switch" id="btn-switch">🔄 换门</button>
+                    </div>
                 </div>
 
-                <!-- Live bars -->
-                <div class="rate-bars" id="monty-bars" style="display:none;">
-                    <div class="rate-row">
-                        <span class="rate-label">坚持不换</span>
-                        <div class="rate-track">
-                            <div class="rate-fill bad" id="stay-fill"></div>
-                        </div>
-                        <span class="rate-pct" id="stay-pct">—</span>
-                    </div>
-                    <div class="rate-row">
-                        <span class="rate-label">换门</span>
-                        <div class="rate-track">
-                            <div class="rate-fill good" id="switch-fill"></div>
-                        </div>
-                        <span class="rate-pct" id="switch-pct">—</span>
-                    </div>
-                    <p class="sim-count" id="monty-count"></p>
+                <!-- Play again button -->
+                <div style="text-align:center; margin-top:16px; display:none;" id="play-again-wrap">
+                    <button class="btn-sim" id="btn-play-again">再来一局</button>
                 </div>
 
-                <div class="insight-box">
-                    <strong>为什么？</strong>
-                    换门赢率是 <strong>2/3 ≈ 66.7%</strong>。初始选中车的概率是 1/3，不换就锁死在 1/3；主持人的行为带来了新信息，让换门的期望值翻倍。
+                <!-- Personal record -->
+                <div class="player-stats" id="player-stats" style="display:none;">
+                    <div class="stat-col">
+                        <div class="stat-label">🔒 不换</div>
+                        <div class="stat-nums">
+                            <span class="stat-win" id="ps-stay-win">0</span>
+                            <span class="stat-sep">胜</span>
+                            <span class="stat-lose" id="ps-stay-lose">0</span>
+                            <span class="stat-sep">负</span>
+                        </div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-col">
+                        <div class="stat-label">🔄 换门</div>
+                        <div class="stat-nums">
+                            <span class="stat-win" id="ps-switch-win">0</span>
+                            <span class="stat-sep">胜</span>
+                            <span class="stat-lose" id="ps-switch-lose">0</span>
+                            <span class="stat-sep">负</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zone 2: Convergence Chart -->
+            <div class="paradox-card monty-sim-section">
+                <div class="paradox-header">
+                    <div class="paradox-question">
+                        <div class="question-badge" style="background:#dcfce7;color:#059669;">蒙特卡洛验证</div>
+                        <p>随着模拟次数增加，胜率会如何变化？看曲线慢慢收敛到理论值。</p>
+                    </div>
+                </div>
+
+                <div id="monty-convergence-chart" style="height:300px;"></div>
+
+                <div class="sim-controls" style="margin-top:16px;">
+                    <button class="btn-sim" id="conv-start-btn">▶ 开始模拟</button>
+                    <button class="btn-reset" id="conv-reset-btn">重置</button>
+                </div>
+                <p class="sim-count" id="conv-count" style="margin-top:8px;"></p>
+
+                <div class="insight-box" style="margin-top:20px;">
+                    <strong>为什么要换？</strong>
+                    初始选中车的概率是 1/3，不换就锁死在 1/3；主持人揭示山羊门时带来了新信息，换门的赢率因此升至 <strong>2/3 ≈ 66.7%</strong>。
                 </div>
             </div>
         </section>

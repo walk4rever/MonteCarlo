@@ -39,11 +39,10 @@ def birthday():
 
     results = []
     for size in range(2, max_group + 1):
-        hits = 0
-        for _ in range(trials):
-            birthdays = np.random.randint(0, 365, size)
-            if len(set(birthdays)) < size:
-                hits += 1
+        # 一次生成 (trials × size) 矩阵，排序后检测同行是否有重复值
+        mat = np.random.randint(0, 365, (trials, size))
+        mat.sort(axis=1)
+        hits = int(np.any(mat[:, 1:] == mat[:, :-1], axis=1).sum())
         results.append({
             'size': size,
             'probability': round(hits / trials * 100, 1)

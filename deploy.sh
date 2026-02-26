@@ -6,10 +6,10 @@ cd "$ROOT_DIR"
 
 git pull
 
-docker build -t montecarlo:latest .
+docker build --network host -t montecarlo:latest .
 
 if docker ps -a --format '{{.Names}}' | grep -q '^montecarlo$'; then
   docker rm -f montecarlo
 fi
 
-docker run -d --name montecarlo -p 5001:5001 --restart=always montecarlo:latest
+docker run -d --name montecarlo --network host --restart=always montecarlo:latest

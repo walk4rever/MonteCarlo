@@ -22,13 +22,13 @@ python app.py
 ```
 
 浏览器访问：
-- http://127.0.0.1:5001/
-- http://127.0.0.1:5001/demo
+- http://127.0.0.1:8765/
+- http://127.0.0.1:8765/demo
 
 ## 运行方式（Docker）
 ```bash
 docker build -t montecarlo:latest .
-docker run -d --name montecarlo -p 5001:5001 --restart=always montecarlo:latest
+docker run -d --name montecarlo -p 8765:8765 --restart=always montecarlo:latest
 ```
 
 ## 技术栈

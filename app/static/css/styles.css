@@ -742,3 +742,46 @@ body {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+/* ===== Interpretation ===== */
+#interpretation-card h3 {
+    color: var(--accent);
+}
+
+.interp-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-size: 14px;
+    color: var(--text-2);
+    line-height: 1.7;
+}
+
+.interp-content strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.interp-advice {
+    margin-top: 8px;
+    padding: 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.7;
+}
+
+.interp-advice[data-level="bad"] {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.interp-advice[data-level="mid"] {
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.interp-advice[data-level="good"] {
+    background: #f0fdf4;
+    color: #14532d;
+}

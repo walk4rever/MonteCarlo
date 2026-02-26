@@ -286,6 +286,37 @@ function renderRetirementResults(data, params) {
 
     // Scroll to results
     section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+    // -- Render Interpretation --
+    const interp = data.interpretation
+    if (interp) {
+        const card = document.getElementById('interpretation-card')
+        const simpleMarkdown = (str) => str.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+
+        document.getElementById('interp-title').textContent = interp.title
+        document.getElementById('interp-success-rate').innerHTML = simpleMarkdown(interp.success_rate)
+        document.getElementById('interp-final-wealth-range').innerHTML = simpleMarkdown(interp.final_wealth_range)
+        document.getElementById('interp-final-wealth-median').innerHTML = simpleMarkdown(interp.final_wealth_median)
+        document.getElementById('interp-retire-wealth-median').innerHTML = simpleMarkdown(interp.retire_wealth_median)
+        
+        const adviceEl = document.getElementById('interp-advice')
+        if (interp.advice) {
+            adviceEl.innerHTML = simpleMarkdown(interp.advice)
+            adviceEl.style.display = 'block'
+
+            // Set data-level for styling
+            if (data.success_rate < 50) {
+                adviceEl.dataset.level = 'bad'
+            } else if (data.success_rate < 85) {
+                adviceEl.dataset.level = 'mid'
+            } else {
+                adviceEl.dataset.level = 'good'
+            }
+        } else {
+            adviceEl.style.display = 'none'
+        }
+        card.style.display = 'block'
+    }
 }
 
 /* ── Init ── */

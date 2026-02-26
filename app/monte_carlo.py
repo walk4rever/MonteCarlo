@@ -154,6 +154,49 @@ def simulate_retirement(
     retire_wealth = wealth[:, retire_month]
     retire_median = float(np.median(retire_wealth))
 
+    # ---- Interpretation Generation ----
+    final_p10 = float(np.percentile(final_wealth, 10))
+    final_p50 = float(np.median(final_wealth))
+    final_p90 = float(np.percentile(final_wealth, 90))
+
+    def format_currency(value):
+        if value < 10000:
+            return f"{int(value):,}"
+        return f"{value/10000:,.1f} 万"
+
+    interpretation = {
+        "title": "结果解读",
+        "success_rate": (
+            f"您的退休计划成功率为 **{success_rate:.1f}%**。"
+            f"这意味着在模拟的 {n_simulations} 种未来中，有"
+            f" **{int(n_simulations * success_rate / 100)}** 种情况下，"
+            f"您的财富可以支撑到生命周期结束（{life_expectancy}岁）而不会耗尽。"
+        ),
+        "final_wealth_range": (
+            f"最终财富有很大的不确定性。在 **10% 的较差情况下**，您到期末时将剩下"
+            f" **{format_currency(final_p10)}** 元或更少。"
+            f"而在 **10% 的较好情况下**，您将拥有"
+            f" **{format_currency(final_p90)}** 元或更多。"
+            "这个范围揭示了投资风险带来的可能结果的巨大差异。"
+        ),
+        "final_wealth_median": (
+            f"最可能的结果是，您在生命周期结束时将拥有约"
+            f" **{format_currency(final_p50)}** 元。这可以看作是您退休计划的“中间路径”或基准情景。"
+        ),
+        "retire_wealth_median": (
+            f"当您在 **{retire_age}** 岁退休时，最可能积累的财富约为"
+            f" **{format_currency(retire_median)}** 元。"
+            "这笔资金将是您退休生活开始时的“本金”。"
+        )
+    }
+    if success_rate < 50:
+        interpretation["advice"] = "**风险提示**：当前计划的成功率较低，意味着您的资金有较大可能在晚年耗尽。建议考虑增加储蓄、延迟退休或采取更优化的投资策略。"
+    elif success_rate < 85:
+        interpretation["advice"] = "**注意事项**：您的计划有中等程度的成功机会，但在一些不利的市场情况下仍有风险。建议审视您的退休后开支计划，并考虑建立额外的安全垫。"
+    else:
+        interpretation["advice"] = "**计划评估**：您的退休计划看起来相当稳健，有很高的概率能够成功实现财务目标。请继续保持良好的储蓄和投资习惯。"
+
+
     return {
         'time_years': time_years.tolist(),
         'percentiles': {
@@ -170,8 +213,9 @@ def simulate_retirement(
             'counts': hist_counts.tolist(),
             'edges': hist_edges.tolist(),
         },
-        'final_median': round(float(np.median(final_wealth)), 0),
-        'final_p10': round(float(np.percentile(final_wealth, 10)), 0),
-        'final_p90': round(float(np.percentile(final_wealth, 90)), 0),
+        'final_median': round(final_p50, 0),
+        'final_p10': round(final_p10, 0),
+        'final_p90': round(final_p90, 0),
         'n_simulations': n_simulations,
+        'interpretation': interpretation,
     }
